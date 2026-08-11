@@ -5,123 +5,306 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Doorzo Deal Monitor</title>
 <style>
+  /* ---- design tokens ------------------------------------------------------ */
   :root {
-    --bg: #0f1115; --panel: #171a21; --panel2: #1d212b; --border: #2a2f3a;
-    --text: #e6e8ee; --muted: #8b93a3; --accent: #4f8cff; --good: #3ddc84;
-    --bad: #ff5c5c; --warn: #ffc24b;
+    --ink: #10141c;            /* page background: deep ink */
+    --panel: #171d28;
+    --panel-2: #1e2533;
+    --line: #28303f;
+    --text: #e8ebf2;
+    --muted: #8f99ab;
+    --faint: #5c6577;
+    --vermilion: #e5484d;      /* japanese red — the accent */
+    --indigo: #6e8cff;
+    --gold: #e8b84b;
+    --good: #46c98b;
+    --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    --radius: 14px;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -22px rgba(0,0,0,.6);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 18px 24px; border-bottom: 1px solid var(--border);
-           display: flex; align-items: baseline; gap: 12px; }
-  header h1 { margin: 0; font-size: 20px; }
-  header .sub { color: var(--muted); }
-  main { max-width: 1100px; margin: 0 auto; padding: 20px 24px 60px; }
-  section { background: var(--panel); border: 1px solid var(--border);
-            border-radius: 10px; padding: 18px; margin-top: 18px; }
-  h2 { margin: 0 0 12px; font-size: 16px; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  input, select, button { background: var(--panel2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 14px; }
-  input:focus, select:focus { outline: 1px solid var(--accent); }
-  button { cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  button:hover { filter: brightness(1.12); }
-  button:disabled { opacity: .5; cursor: default; filter: none; }
-  button.danger { background: transparent; color: var(--bad); }
-  label { color: var(--muted); display: flex; align-items: center; gap: 5px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .chip { background: var(--panel2); border: 1px solid var(--border); border-radius: 20px;
-          padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--muted); }
-  .chip:hover { color: var(--text); border-color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
-           vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-  td.num, th.num { text-align: right; white-space: nowrap; }
-  a { color: var(--accent); text-decoration: none; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 420px at 82% -10%, rgba(110,140,255,.10), transparent 60%),
+      radial-gradient(700px 380px at 8% -6%, rgba(229,72,77,.09), transparent 55%),
+      var(--ink);
+    color: var(--text);
+    font: 15px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(229,72,77,.35); }
+
+  /* ---- header ------------------------------------------------------------- */
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 18px clamp(20px, 5vw, 64px);
+    border-bottom: 1px solid var(--line);
+    background: rgba(16,20,28,.7);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); }
+  .mark {
+    width: 34px; height: 34px; border-radius: 10px; flex: none;
+    background: linear-gradient(135deg, var(--vermilion), #b0323a);
+    display: grid; place-items: center; color: #fff;
+    box-shadow: 0 6px 18px -6px rgba(229,72,77,.55);
+  }
+  .mark svg { width: 20px; height: 20px; }
+  .brand .word { font: 700 18px/1 var(--serif); letter-spacing: .01em; }
+  .brand .sub { display: block; font: 500 11px/1 var(--sans); color: var(--muted); letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
+  .headrate { display: flex; align-items: center; gap: 8px; font: 600 13px var(--mono); color: var(--muted); }
+  .headrate .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); }
+
+  /* ---- layout ------------------------------------------------------------- */
+  main { max-width: 1080px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 48px) 80px; }
+
+  /* hero */
+  .hero { text-align: center; padding: 56px 0 34px; }
+  .hero .kicker {
+    display: inline-block; font: 700 11px/1 var(--sans); letter-spacing: .22em;
+    text-transform: uppercase; color: var(--gold);
+    border: 1px solid rgba(232,184,75,.35); border-radius: 999px; padding: 7px 14px; margin-bottom: 20px;
+  }
+  .hero h1 {
+    font: 700 clamp(34px, 6vw, 54px)/1.08 var(--serif); margin: 0 auto 14px; max-width: 15ch;
+    text-wrap: balance;
+  }
+  .hero h1 em { font-style: italic; color: var(--vermilion); }
+  .hero p { color: var(--muted); margin: 0 auto; max-width: 46ch; font-size: 16px; }
+
+  /* search card */
+  .searchcard {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), transparent), var(--panel);
+    border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: var(--shadow);
+  }
+  .searchrow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .field { flex: 1 1 220px; }
+  input[type=text], input[type=number], select {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px;
+    font: 500 14px var(--sans); transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(110,140,255,.18); }
+  input::placeholder { color: var(--faint); }
+  select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+          background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+  .small { width: auto; min-width: 92px; flex: 0 0 auto; }
+  .check { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: var(--panel-2);
+           border: 1px solid var(--line); border-radius: 10px; cursor: pointer; user-select: none; color: var(--muted); font-weight: 500; }
+  .check input { accent-color: var(--vermilion); width: 15px; height: 15px; }
+  button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 11px 16px; font: 600 14px var(--sans); cursor: pointer;
+    transition: transform .06s, border-color .15s, background .15s, box-shadow .15s;
+  }
+  button:hover { border-color: var(--faint); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary {
+    background: linear-gradient(135deg, var(--vermilion), #c23a41); border-color: transparent; color: #fff;
+    box-shadow: 0 10px 26px -10px rgba(229,72,77,.65);
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost { background: transparent; }
+  button.danger { color: var(--vermilion); border-color: rgba(229,72,77,.4); background: transparent; }
+  button.mini { padding: 6px 11px; font-size: 13px; border-radius: 8px; }
+  .searchbar-actions { display: flex; gap: 10px; align-items: stretch; }
+
+  /* chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+    border-radius: 999px; padding: 5px 12px; font: 600 12px var(--sans); cursor: pointer;
+    transition: all .12s;
+  }
+  .chip:hover { color: var(--text); border-color: var(--faint); }
+  .chip.on { color: #fff; border-color: var(--vermilion); background: rgba(229,72,77,.16); box-shadow: 0 0 0 1px var(--vermilion) inset; }
+  .chips .lbl { align-self: center; font: 600 11px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-right: 2px; }
+
+  /* sections */
+  section { margin-top: 30px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .sec-head h2 { font: 700 21px/1 var(--serif); margin: 0; }
+  .sec-head .hint { color: var(--faint); font-size: 13px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .two-col { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 920px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* tables */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--faint); font: 700 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+  tbody tr { transition: background .1s; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  a { color: var(--indigo); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  .price { font-weight: 700; }
-  .deal { color: var(--good); font-size: 12px; }
-  .shop { display: inline-block; background: var(--panel2); border: 1px solid var(--border);
-          border-radius: 4px; padding: 1px 7px; font-size: 12px; color: var(--muted); }
-  .status { margin-left: 10px; color: var(--muted); font-size: 13px; }
-  .error { color: var(--bad); }
-  .muted { color: var(--muted); }
-  .empty { color: var(--muted); text-align: center; padding: 14px; }
-  footer { text-align: center; color: var(--muted); font-size: 13px;
-           padding: 26px 0 34px; border-top: 1px solid var(--border); }
-  .mon { display: flex; gap: 8px; }
-  .mon button { white-space: nowrap; }
-  .badge { color: var(--good); font-weight: 600; }
+  .item-name { font-weight: 600; line-height: 1.4; }
+  .price { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .origin { color: var(--faint); text-decoration: line-through; font-size: 12px; }
+  .shop-tag { display: inline-block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font: 600 11px var(--sans); color: var(--muted); white-space: nowrap; }
+  .deal-pill { display: inline-block; background: rgba(70,201,139,.14); color: var(--good); border: 1px solid rgba(70,201,139,.4);
+               border-radius: 999px; padding: 1px 9px; font: 700 11px var(--sans); letter-spacing: .04em; }
+  .cond { color: var(--muted); font-size: 13px; }
+  .auction-line { font: 600 12px var(--mono); color: var(--gold); }
+  .empty { color: var(--faint); text-align: center; padding: 44px 20px; }
+  .empty svg { width: 56px; height: 56px; opacity: .5; margin-bottom: 10px; }
+  .empty .t { color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+  .empty .s { font-size: 13px; }
+
+  /* skeleton */
+  .skel { padding: 0 14px; }
+  .skel-row { height: 18px; border-radius: 6px; margin: 16px 0; background: linear-gradient(90deg, var(--panel-2) 25%, rgba(255,255,255,.05) 50%, var(--panel-2) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* monitors */
+  .mon-add { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); }
+  .mon-add .field { flex: 1 1 140px; }
+  .mon-body { padding: 6px 0; }
+  .mon-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .mon-row:last-child { border-bottom: none; }
+  .mon-main { flex: 1 1 220px; min-width: 0; }
+  .mon-name { font-weight: 700; font-family: var(--serif); font-size: 16px; }
+  .mon-kw { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mon-meta { font: 600 12px var(--mono); color: var(--faint); white-space: nowrap; }
+  .mon-new { color: var(--good); font-weight: 700; }
+  .mon-actions { display: flex; gap: 7px; }
+
+  /* alerts */
+  .alert-time { color: var(--faint); font: 500 12px var(--mono); white-space: nowrap; }
+
+  /* toast */
+  #toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    padding: 11px 18px; border-radius: 12px; font: 600 14px var(--sans);
+    box-shadow: 0 18px 44px -14px rgba(0,0,0,.7); opacity: 0; pointer-events: none;
+    transition: opacity .22s, transform .22s; z-index: 50; max-width: 90vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err { border-color: rgba(229,72,77,.55); color: #ff9d9d; }
+
+  footer {
+    margin-top: 64px; text-align: center; padding: 30px 20px 40px;
+    border-top: 1px solid var(--line); color: var(--faint); font-size: 13px;
+  }
+  footer .note { font-family: var(--serif); font-style: italic; color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .statusline { font: 600 13px var(--sans); color: var(--muted); }
 </style>
 </head>
 <body>
 <header>
-  <h1>Doorzo Deal Monitor</h1>
-  <span class="sub">good-priced items across Japanese proxy shops &middot; Mercari &middot; Rakuten &middot; Yahoo Auctions &middot; SNKRDUNK &amp; more</span>
+  <a class="brand" href="/">
+    <span class="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 10h16M4 10l2-5h12l2 5M6 10v8h12v-8M12 5v13"/>
+      </svg>
+    </span>
+    <span>
+      <span class="word">Doorzo Deal Monitor</span>
+      <span class="sub">proxy-shopping deals from japan</span>
+    </span>
+  </a>
+  <div class="headrate"><span class="dot"></span><span id="headRate">¥1 = …</span></div>
 </header>
+
 <main>
-  <section id="search">
-    <h2>Search</h2>
-    <div class="row">
-      <input id="q" type="text" placeholder="keyword (e.g. マリオパーティ, nintendo switch)" size="34">
-      <input id="maxPrice" type="number" placeholder="max price ¥" min="1">
-      <input id="minDisc" type="number" placeholder="min % off" min="0" max="100">
-      <select id="sort">
+  <div class="hero">
+    <span class="kicker">9 Japanese marketplaces · one search</span>
+    <h1>Good deals from Japan, <em>before they vanish.</em></h1>
+    <p>Search Mercari, Rakuten, Yahoo Auctions, SNKRDUNK and more through doorzo — set a price ceiling and let the monitor ring when something worth it appears.</p>
+  </div>
+
+  <section class="searchcard" id="search">
+    <div class="searchrow">
+      <div class="field">
+        <input id="q" type="text" placeholder="keyword — e.g. マリオパーティ, nintendo switch" autocomplete="off">
+      </div>
+      <input id="maxPrice" class="small" type="number" placeholder="max ¥" min="1" title="Price ceiling (JPY)">
+      <input id="minDisc" class="small" type="number" placeholder="min % off" min="0" max="100" title="Minimum discount vs. list price">
+      <select id="sort" class="small" title="Sort order">
         <option value="recommended">Recommended</option>
-        <option value="price_asc">Price: low to high</option>
-        <option value="price_desc">Price: high to low</option>
+        <option value="price_asc">Price · low to high</option>
+        <option value="price_desc">Price · high to low</option>
       </select>
-      <label><input id="inStock" type="checkbox" checked> in stock</label>
-      <input id="limit" type="number" value="20" min="1" max="200" style="width:70px">
-      <button id="doSearch" class="primary">Search</button>
-      <span id="searchStatus" class="status"></span>
+      <label class="check"><input id="inStock" type="checkbox" checked> In stock</label>
+      <input id="limit" class="small" type="number" value="20" min="1" max="200" title="Results shown">
+      <div class="searchbar-actions">
+        <button id="doSearch" class="primary">Search</button>
+      </div>
     </div>
-    <div class="chips" id="shopChips"></div>
-    <div id="results"></div>
-  </section>
-
-  <section id="hotsec">
-    <h2>Hot searches <span class="status" id="hotStatus"></span></h2>
-    <div class="chips" id="hotChips"></div>
-  </section>
-
-  <section id="ratesec">
-    <h2>Exchange rate</h2>
-    <div class="row">
-      <input id="cur" type="text" value="AUD" size="6" placeholder="AUD">
-      <button id="doRate">Get rate</button>
-      <span id="rateOut" class="muted"></span>
+    <div class="chips" style="margin-top:14px">
+      <span class="lbl">Shops</span>
+      <span class="chip all on" data-all="search">all</span>
+      <span class="chips" id="shopChips" style="display:contents"></span>
     </div>
   </section>
 
-  <section id="monsec">
-    <h2>Monitors</h2>
-    <div class="row">
-      <input id="mName" type="text" placeholder="name (e.g. mario party)" size="16">
-      <input id="mKeyword" type="text" placeholder="keyword" size="24">
-      <input id="mMax" type="number" placeholder="max price ¥" min="1">
-      <input id="mDisc" type="number" placeholder="min % off" min="0" max="100" value="0">
-      <label><input id="mNotify" type="checkbox" checked> notify</label>
-      <button id="mAdd" class="primary">Add monitor</button>
-      <button id="mCheckAll">Check all</button>
-      <span id="monStatus" class="status"></span>
+  <section id="hotsec" style="margin-top:18px">    <div class="chips" id="hotChips">
+      <span class="lbl">Trending</span>
     </div>
-    <div class="muted" style="margin-top:6px">shops (comma-separated, empty = all):</div>
-    <div class="chips" id="monShopChips"></div>
-    <div id="monitors"></div>
   </section>
 
-  <section id="alertsec">
-    <h2>Recent alerts <button id="refreshAlerts" style="margin-left:8px">refresh</button></h2>
-    <div id="alerts"></div>
+  <section id="resultsec">
+    <div class="sec-head">
+      <h2>Results</h2>
+      <span class="statusline" id="searchStatus"></span>
+    </div>
+    <div class="card"><div class="tbl-wrap" id="results"></div></div>
   </section>
+
+  <div class="two-col">
+    <section id="monsec">
+      <div class="sec-head">
+        <h2>Monitors</h2>
+        <span class="hint">notify me when something new matches</span>
+      </div>
+      <div class="card">
+        <div class="mon-add">
+          <div class="field"><input id="mName" type="text" placeholder="name — e.g. mario party"></div>
+          <div class="field"><input id="mKeyword" type="text" placeholder="keyword"></div>
+          <div class="field"><input id="mMax" type="number" placeholder="max price ¥" min="1"></div>
+          <input id="mDisc" class="small" type="number" placeholder="min % off" min="0" max="100" value="0">
+          <label class="check"><input id="mNotify" type="checkbox" checked> Notify</label>
+          <button id="mAdd" class="primary">Add</button>
+        </div>
+        <div class="chips" style="padding:0 16px 12px">
+          <span class="lbl">Shops</span>
+          <span class="chip all on" data-all="monitor">all</span>
+          <span class="chips" id="monShopChips" style="display:contents"></span>
+        </div>
+        <div class="mon-body" id="monitors"></div>
+        <div style="padding:12px 16px; border-top:1px solid var(--line)">
+          <button id="mCheckAll" class="mini">Check all monitors</button>
+          <span class="statusline" id="monStatus" style="margin-left:10px"></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="alertsec">
+      <div class="sec-head">
+        <h2>Alerts</h2>
+        <button id="refreshAlerts" class="mini ghost">refresh</button>
+      </div>
+      <div class="card"><div class="tbl-wrap" id="alerts" style="max-height:520px; overflow-y:auto"></div></div>
+    </section>
+  </div>
 </main>
+
 <footer>
-  made entirely with deepseek v4 flash 0731
+  finds deals on doorzo.com · not affiliated with doorzo · price is listing price before proxy fee &amp; shipping
+  <div class="note">made entirely with deepseek v4 flash 0731</div>
 </footer>
+
+<div id="toast"></div>
 
 <script>
 const SHOPS = ["mercari","rakuma","paypay_mall","paypay_flea","rakuten",
@@ -129,32 +312,42 @@ const SHOPS = ["mercari","rakuma","paypay_mall","paypay_flea","rakuten",
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => n > 0 ? "¥" + Number(n).toLocaleString() : "—";
+
 let selectedShops = new Set();
 let monShops = new Set();
-
-function shopChips(containerId, target, multi) {
-  const el = $(containerId);
-  el.innerHTML = "";
+let toastTimer = null;
+function toast(msg, err) {
+  const t = $("toast"); t.textContent = msg; t.className = err ? "show err" : "show";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = "", 3200);
+}
+function buildChips(elId, target) {
+  const el = $(elId); el.innerHTML = "";
   SHOPS.forEach(s => {
     const c = document.createElement("span");
-    c.className = "chip";
-    c.textContent = s;
+    c.className = "chip"; c.textContent = s;
     c.onclick = () => {
-      if (multi) {
-        target.has(s) ? target.delete(s) : target.add(s);
-        c.style.borderColor = target.has(s) ? "var(--accent)" : "";
-        c.style.color = target.has(s) ? "var(--text)" : "";
-      } else {
-        target.length = 0; target.push(s);
-        [...el.children].forEach(x => { x.style.borderColor = ""; x.style.color = ""; });
-        c.style.borderColor = "var(--accent)"; c.style.color = "var(--text)";
-      }
+      target.has(s) ? target.delete(s) : target.add(s);
+      c.classList.toggle("on", target.has(s));
+      syncAllChips();
     };
     el.appendChild(c);
   });
 }
-shopChips("shopChips", selectedShops, true);
-shopChips("monShopChips", monShops, true);
+function syncAllChips() {
+  document.querySelectorAll(".chip.all").forEach(c => {
+    const target = c.dataset.all === "monitor" ? monShops : selectedShops;
+    c.classList.toggle("on", target.size === 0);
+  });
+}
+document.querySelectorAll(".chip.all").forEach(c => c.onclick = () => {
+  const target = c.dataset.all === "monitor" ? monShops : selectedShops;
+  target.clear();
+  const chipsId = c.dataset.all === "monitor" ? "monShopChips" : "shopChips";
+  document.querySelectorAll("#" + chipsId + " .chip").forEach(x => x.classList.remove("on"));
+  syncAllChips();
+});
+buildChips("shopChips", selectedShops);
+buildChips("monShopChips", monShops);
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -165,12 +358,13 @@ async function api(path, opts) {
 }
 const qs = p => new URLSearchParams(Object.entries(p).filter(([,v]) => v !== "" && v != null)).toString();
 
-// --- search ---------------------------------------------------------------
+/* ---- search -------------------------------------------------------------- */
 async function runSearch(keyword) {
   if (!keyword) keyword = $("q").value.trim();
   if (!keyword) return;
   $("q").value = keyword;
-  const st = $("searchStatus"); st.textContent = "searching…";
+  $("searchStatus").textContent = "searching…";
+  renderResults(null);
   const p = { keyword, sort: $("sort").value, only_in_stock: $("inStock").checked,
               limit: $("limit").value || 20 };
   if ($("maxPrice").value) p.max_price_jpy = $("maxPrice").value;
@@ -178,96 +372,111 @@ async function runSearch(keyword) {
   if (selectedShops.size) p.shops = [...selectedShops].join(",");
   try {
     const j = await api("/api/search?" + qs(p));
+    $("searchStatus").textContent = j.items.length + " result" + (j.items.length === 1 ? "" : "s");
     renderResults(j.items);
-    st.textContent = j.items.length + " results";
-  } catch (e) { st.textContent = ""; renderResults(null, e.message); }
+  } catch (e) {
+    $("searchStatus").textContent = "";
+    renderResults(null, e.message);
+  }
 }
 $("doSearch").onclick = () => runSearch();
 $("q").addEventListener("keydown", e => { if (e.key === "Enter") runSearch(); });
 
 function renderResults(items, err) {
   const el = $("results");
-  if (err) { el.innerHTML = '<div class="error">' + esc(err) + "</div>"; return; }
-  if (!items || !items.length) { el.innerHTML = '<div class="empty">no items found</div>'; return; }
-  let h = '<table><thead><tr><th>Item</th><th>Shop</th><th class="num">Price</th>' +
-          '<th class="num">Origin</th><th class="num">% off</th><th>Condition</th></tr></thead><tbody>';
+  if (err) {
+    el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 15.8v.2"/></svg><span class="t">That search slipped</span><span class="s">' + esc(err) + '</span></div>';
+    return;
+  }
+  if (!items) {
+    el.innerHTML = '<div class="skel">' + '<div class="skel-row"></div>'.repeat(6) + "</div>";
+    return;
+  }
+  if (!items.length) {
+    el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg><span class="t">Nothing at that price</span><span class="s">try a higher ceiling, a broader keyword, or all shops</span></div>';
+    return;
+  }
+  let h = '<table><thead><tr><th>Item</th><th>Shop</th><th class="num">Price</th><th class="num">List</th><th>Condition</th><th class="num">% off</th></tr></thead><tbody>';
   items.forEach(it => {
-    const cond = it.condition ? esc(it.condition) : '<span class="muted">—</span>';
-    h += "<tr><td><a href=\"" + esc(it.original_url) + "\" target=\"_blank\" rel=\"noopener\">" + esc(it.name) + "</a>" +
-         (it.deal ? ' <span class="deal">✓ deal</span>' : "") + "</td>" +
-         '<td><span class="shop">' + esc(it.shop) + "</span></td>" +
+    const cond = it.condition ? '<span class="cond">' + esc(it.condition) + "</span>" : '<span class="cond">—</span>';
+    const auc = it.auction && (it.auction.bid_jpy || it.auction.buy_now_jpy)
+      ? '<div class="auction-line">' + (it.auction.buy_now_jpy ? "buy-now " + money(it.auction.buy_now_jpy) : "bid " + money(it.auction.bid_jpy)) + "</div>" : "";
+    h += '<tr><td><span class="item-name"><a href="' + esc(it.original_url) + '" target="_blank" rel="noopener">' + esc(it.name) + "</a></span>" +
+         (it.deal ? ' <span class="deal-pill">deal</span>' : "") + auc + "</td>" +
+         '<td><span class="shop-tag">' + esc(it.shop) + "</span></td>" +
          '<td class="num price">' + money(it.price_jpy) + "</td>" +
-         '<td class="num muted">' + money(it.origin_jpy) + "</td>" +
-         '<td class="num">' + (it.discount_pct ? it.discount_pct + "%" : "—") + "</td>" +
-         "<td>" + cond + "</td></tr>";
+         '<td class="num origin">' + (it.origin_jpy ? money(it.origin_jpy) : "") + "</td>" +
+         "<td>" + cond + "</td>" +
+         '<td class="num">' + (it.discount_pct ? '<span style="color:var(--good)">-' + it.discount_pct + "%</span>" : "—") + "</td></tr>";
   });
   el.innerHTML = h + "</tbody></table>";
 }
 
-// --- hot + rate -----------------------------------------------------------
+/* ---- trending + rate ------------------------------------------------------ */
 async function loadHot() {
   try {
     const j = await api("/api/hot");
-    $("hotChips").innerHTML = "";
+    $("hotChips").innerHTML = '<span class="lbl">Trending</span>';
     (j.items || []).forEach(x => {
       const c = document.createElement("span");
       c.className = "chip"; c.textContent = x.keyword;
       c.onclick = () => runSearch(x.keyword);
       $("hotChips").appendChild(c);
     });
-    $("hotStatus").textContent = (j.items || []).length + " trending";
-  } catch (e) { $("hotStatus").textContent = "hot search failed: " + e.message; }
+  } catch (e) { /* rate stays quiet */ }
 }
-$("doRate").onclick = async () => {
+async function loadRate() {
   try {
-    const j = await api("/api/rate?currency=" + encodeURIComponent($("cur").value.trim() || "AUD"));
-    $("rateOut").textContent = "¥1 = " + j.symbol + j.exchange + " (" + j.name + ")";
-  } catch (e) { $("rateOut").textContent = e.message; }
-};
+    const j = await api("/api/rate?currency=AUD");
+    $("headRate").textContent = "¥1 = " + j.symbol + j.exchange + " " + j.currency;
+  } catch (e) { $("headRate").textContent = "rate unavailable"; }
+}
 
-// --- monitors -------------------------------------------------------------
+/* ---- monitors ------------------------------------------------------------- */
+function monRowHtml(m) {
+  const shops = m.shops && m.shops.length ? m.shops.join(", ") : "all";
+  const checked = m.last_checked_at ? m.last_checked_at.slice(0, 19).replace("T", " ") : "never";
+  return '<div class="mon-row">' +
+    '<div class="mon-main"><div class="mon-name">' + esc(m.name) + "</div>" +
+    '<div class="mon-kw">' + esc(m.keyword) + "</div></div>" +
+    '<div class="mon-meta">≤ ' + money(m.max_price_jpy) + (m.min_discount_pct ? " · ≥" + m.min_discount_pct + "% off" : "") + " · " + esc(shops) + (m.notify ? "" : " · silent") + "</div>" +
+    '<div class="mon-meta">checked ' + esc(checked) + ' · <span class="mon-new">' + (m.last_new_count || 0) + " new</span></div>" +
+    '<div class="mon-actions">' +
+    '<button class="mini" data-check="' + esc(m.id) + '">Check</button>' +
+    '<button class="mini danger" data-del="' + esc(m.id) + '">Delete</button></div></div>';
+}
 async function loadMonitors() {
   try {
     const j = await api("/api/monitors");
     const el = $("monitors");
-    if (!j.monitors.length) { el.innerHTML = '<div class="empty">no monitors yet</div>'; return; }
-    let h = '<table><thead><tr><th>Name</th><th>Keyword</th><th class="num">Max ¥</th>' +
-            '<th>Shops</th><th class="num">% off</th><th>Notify</th><th>Last checked</th>' +
-            '<th class="num">Last new</th><th></th></tr></thead><tbody>';
-    j.monitors.forEach(m => {
-      h += "<tr><td>" + esc(m.name) + "</td><td>" + esc(m.keyword) + "</td>" +
-           '<td class="num">' + money(m.max_price_jpy) + "</td>" +
-           "<td>" + (m.shops && m.shops.length ? m.shops.map(esc).join(", ") : "all") + "</td>" +
-           '<td class="num">' + (m.min_discount_pct || "—") + "</td>" +
-           "<td>" + (m.notify ? "yes" : "no") + "</td>" +
-           '<td class="muted">' + esc((m.last_checked_at || "").slice(0, 19).replace("T", " ")) + "</td>" +
-           '<td class="num"><span class="badge">' + (m.last_new_count || 0) + "</span></td>" +
-           '<td class="mon"><button data-check="' + esc(m.id) + '">Check</button>' +
-           '<button class="danger" data-del="' + esc(m.id) + '">Delete</button></td></tr>';
-    });
-    el.innerHTML = h + "</tbody></table>";
+    if (!j.monitors.length) {
+      el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v18M3 12h18"/></svg><span class="t">No monitors yet</span><span class="s">add one above — keyword + price ceiling</span></div>';
+      return;
+    }
+    el.innerHTML = j.monitors.map(monRowHtml).join("");
     el.querySelectorAll("[data-check]").forEach(b => b.onclick = () => runCheck(b.dataset.check));
     el.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-      if (!confirm("Delete monitor?")) return;
       await api("/api/monitors/" + encodeURIComponent(b.dataset.del), { method: "DELETE" });
+      toast("monitor deleted");
       loadMonitors();
     });
-  } catch (e) { $("monitors").innerHTML = '<div class="error">' + esc(e.message) + "</div>"; }
+  } catch (e) { $("monitors").innerHTML = '<div class="empty"><span class="t">' + esc(e.message) + "</span></div>"; }
 }
 $("mAdd").onclick = async () => {
   const body = { name: $("mName").value.trim(), keyword: $("mKeyword").value.trim(),
                  max_price_jpy: Number($("mMax").value), notify_enabled: $("mNotify").checked };
-  if (!body.name || !body.keyword || !body.max_price_jpy) { $("monStatus").textContent = "name, keyword and max price required"; return; }
+  if (!body.name || !body.keyword || !body.max_price_jpy) { toast("name, keyword and max price are required", true); return; }
   if ($("mDisc").value) body.min_discount_pct = Number($("mDisc").value);
   if (monShops.size) body.shops = [...monShops];
   try {
     const j = await api("/api/monitors", { method: "POST", headers: { "Content-Type": "application/json" },
                                            body: JSON.stringify(body) });
-    $("monStatus").textContent = "added " + j.name;
+    toast("monitor “" + j.name + "” added");
     ["mName","mKeyword","mMax"].forEach(x => $(x).value = "");
-    monShops.clear(); [...$("monShopChips").children].forEach(c => { c.style.borderColor = ""; c.style.color = ""; });
+    monShops.clear(); document.querySelectorAll("#monShopChips .chip").forEach(x => x.classList.remove("on"));
+    syncAllChips();
     loadMonitors();
-  } catch (e) { $("monStatus").textContent = e.message; }
+  } catch (e) { toast(e.message, true); }
 };
 $("mCheckAll").onclick = () => runCheck(null);
 
@@ -276,36 +485,37 @@ async function runCheck(id) {
   try {
     const j = await api("/api/check", { method: "POST", headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({ monitor_id: id }) });
-    st.textContent = "checked " + j.results.length + " monitor(s), " +
-                     j.results.reduce((a, r) => a + r.new.length, 0) + " new";
+    const total = j.results.reduce((a, r) => a + r.new.length, 0);
+    st.textContent = "checked " + j.results.length + " monitor(s), " + total + " new";
+    if (total) toast(total + " new deal" + (total === 1 ? "" : "s") + " — notifications sent");
     loadMonitors(); loadAlerts();
     const anyNew = j.results.filter(r => r.new.length);
-    if (anyNew.length) { renderResults(anyNew.flatMap(r => r.new), null); }
-  } catch (e) { st.textContent = e.message; }
+    if (anyNew.length) { renderResults(anyNew.flatMap(r => r.new), null); $("searchStatus").textContent = "new matches from check"; }
+  } catch (e) { st.textContent = ""; toast(e.message, true); }
 }
 
-// --- alerts ---------------------------------------------------------------
+/* ---- alerts --------------------------------------------------------------- */
 async function loadAlerts() {
   try {
-    const j = await api("/api/alerts?limit=100");
+    const j = await api("/api/alerts?limit=80");
     const el = $("alerts");
-    if (!j.alerts.length) { el.innerHTML = '<div class="empty">no alerts yet</div>'; return; }
-    let h = '<table><thead><tr><th>Time (UTC)</th><th>Monitor</th><th>Item</th>' +
-            '<th>Shop</th><th class="num">Price</th></tr></thead><tbody>';
+    if (!j.alerts.length) {
+      el.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 5v8l-8 5-8-5V8z"/><path d="M12 11v4M12 7.5v.5"/></svg><span class="t">No alerts yet</span><span class="s">run a monitor check and matches land here</span></div>';
+      return;
+    }
+    let h = '<table><thead><tr><th>Time</th><th>Monitor</th><th>Item</th><th class="num">Price</th></tr></thead><tbody>';
     j.alerts.forEach(a => {
-      h += "<tr><td class=\"muted\">" + esc(a.ts.slice(0, 19).replace("T", " ")) + "</td>" +
+      h += '<tr><td class="alert-time">' + esc(a.ts.slice(0, 16).replace("T", " ")) + " UTC</td>" +
            "<td>" + esc(a.monitor_name) + "</td>" +
-           '<td><a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.name) + "</a></td>" +
-           '<td><span class="shop">' + esc(a.shop) + "</span></td>" +
+           '<td><span class="item-name"><a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.name) + "</a></span> <span class=\"shop-tag\">" + esc(a.shop) + "</span></td>" +
            '<td class="num price">' + money(a.price_jpy) + "</td></tr>";
     });
     el.innerHTML = h + "</tbody></table>";
-  } catch (e) { $("alerts").innerHTML = '<div class="error">' + esc(e.message) + "</div>"; }
+  } catch (e) { $("alerts").innerHTML = '<div class="empty"><span class="t">' + esc(e.message) + "</span></div>"; }
 }
 $("refreshAlerts").onclick = loadAlerts;
 
-loadHot(); loadMonitors(); loadAlerts();
-$("doRate").click();
+loadHot(); loadRate(); loadMonitors(); loadAlerts();
 </script>
 </body>
 </html>

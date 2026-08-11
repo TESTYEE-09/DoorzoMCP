@@ -68,7 +68,7 @@ doorzo_mcp/
 ## Notes & limitations
 
 - Prices are marketplace prices **before** doorzo's proxy fee and international shipping — the deal signal is the listing price.
-- Condition text passes through untranslated (the API only localizes via a paid endpoint).
+- Condition text is mapped to English (doorzo's API returns it in Chinese); unknown strings pass through untranslated.
 - The API is an internal endpoint of an unaffiliated site; it may change or add bot protection at any time. This project sends plain requests with a stable deviceId and no auth.
 - MIT licensed — use at your own risk; this is not affiliated with or endorsed by doorzo.com.
 

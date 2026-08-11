@@ -20,6 +20,17 @@ SHOP_TYPES: dict[int, str] = {
 
 _HEX_ONLY = re.compile(r"^[0-9a-f]+$")
 
+# doorzo's backend localizes shop conditions to Chinese; map to English.
+# Observed set is complete across all 9 shops; unknown strings pass through.
+CONDITION_EN: dict[str, str] = {
+    "未使用": "Unused",
+    "没有明显的损伤或污渍": "No obvious damage or stains",
+    "有些许损伤或污渍": "Minor damage or stains",
+    "接近未使用": "Nearly unused",
+    "有损伤或污渍": "Damage or stains",
+    "整体状态不佳": "Poor overall condition",
+}
+
 
 def decode_url(raw: str) -> str:
     """Item URLs arrive hex-encoded; some shops send raw ids instead."""
@@ -69,7 +80,7 @@ def normalize(item: dict) -> dict:
         "price_jpy": price,
         "origin_jpy": origin,
         "discount_pct": discount_pct,
-        "condition": item.get("Condition") or "",
+        "condition": CONDITION_EN.get(item.get("Condition") or "", item.get("Condition") or ""),
         "property": item.get("Property") or "",
         "image_url": item.get("ImageUrl") or "",
         "original_url": decode_url(item.get("Url") or ""),
