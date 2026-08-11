@@ -86,7 +86,3 @@ doorzo_mcp/
 - **Condition text** comes from the sites in Chinese; this tool translates it to English (unknown labels pass through as-is).
 - **The API could change.** doorzo.com is an unaffiliated third party; this project uses its internal API with no authentication, so it may break if they change things or add bot protection.
 - **MIT licensed.** Use at your own risk. Not affiliated with or endorsed by doorzo.com.
-
----
-
-*made entirely with deepseek v4 flash 0731*
