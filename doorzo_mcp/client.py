@@ -8,6 +8,7 @@ are the entire auth story (verified live; no cookies, no browser).
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import time
 from pathlib import Path
@@ -17,7 +18,7 @@ from urllib.parse import urlencode
 import httpx
 
 BASE = "https://sig.doorzo.com/"
-DEVICE_ID_PATH = Path.home() / ".doorzo-mcp" / "device_id"
+DEVICE_ID_PATH = Path(os.environ.get("DOORZO_STATE_DIR", Path.home() / ".doorzo-mcp")) / "device_id"
 
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -34,7 +35,12 @@ def _device_id() -> str:
     if DEVICE_ID_PATH.exists():
         return DEVICE_ID_PATH.read_text().strip()
     dev_id = "pc_" + secrets.token_hex(16)
-    DEVICE_ID_PATH.write_text(dev_id)
+    try:
+        fd = os.open(DEVICE_ID_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return DEVICE_ID_PATH.read_text().strip()
+    with os.fdopen(fd, "w") as file:
+        file.write(dev_id)
     return dev_id
 
 
@@ -55,28 +61,23 @@ class DoorzoClient:
 
     def _get(self, service: str, **params: Any) -> dict:
         url = self._url(service, **params)
-        last_err: Exception | None = None
         for attempt in range(2):
             try:
                 resp = httpx.get(
                     url, headers={"User-Agent": UA}, timeout=30, follow_redirects=True
                 )
-                if resp.status_code >= 500 and attempt == 0:
-                    last_err = DoorzoError(f"{service}: HTTP {resp.status_code}")
-                    time.sleep(2)
-                    continue
                 resp.raise_for_status()
                 body = resp.json()
-                break
-            except (httpx.TransportError, json.JSONDecodeError, httpx.HTTPStatusError) as e:
-                last_err = e
+                if body.get("code") != 200:
+                    raise DoorzoError(f"doorzo {service} failed: {body}")
+                return body
+            except (httpx.TransportError, json.JSONDecodeError,
+                    httpx.HTTPStatusError, DoorzoError) as e:
                 if attempt == 0:
                     time.sleep(2)
                     continue
                 raise DoorzoError(f"{service}: {e}") from e
-        if body.get("code") != 200:
-            raise DoorzoError(f"doorzo {service} failed: {body}")
-        return body
+        raise DoorzoError(f"{service}: request failed")
 
     def search(
         self,
@@ -86,6 +87,7 @@ class DoorzoClient:
         max_pages: int = 3,
     ) -> list[dict]:
         """Full search result pool (cursor-paginated; ~180 items per page)."""
+        max_pages = min(max(int(max_pages), 1), 10)
         items: list[dict] = []
         token: str | None = None
         for _ in range(max_pages):

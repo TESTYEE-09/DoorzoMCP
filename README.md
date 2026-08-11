@@ -50,6 +50,8 @@ uv run doorzo-web
 Search something, or add a monitor: give it a name, a keyword, and a max price. Click **Check all monitors** to check for new matches right now. New matches fire a macOS notification and appear in the Alerts list.
 
 Your monitors and alerts are stored in `~/.doorzo-mcp/` and survive restarts.
+Set `DOORZO_STATE_DIR` before starting either service only if you want to keep
+that state somewhere else.
 
 ---
 

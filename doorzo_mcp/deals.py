@@ -19,6 +19,7 @@ SHOP_TYPES: dict[int, str] = {
 }
 
 _HEX_ONLY = re.compile(r"^[0-9a-f]+$")
+PRICE_SENTINELS = {9_999_999, 542_559_090}
 
 # doorzo's backend localizes shop conditions to Chinese; map to English.
 # Observed set is complete across all 9 shops; unknown strings pass through.
@@ -59,20 +60,25 @@ def normalize(item: dict) -> dict:
     bid = _int_or_zero(item.get("BidJPYPrice"))
     buy_now = _int_or_zero(item.get("BuyNowPrice"))
     origin = _int_or_zero(item.get("OriginPrice"))
-    if bid >= 9999999:
+    if bid in PRICE_SENTINELS:
         bid = 0  # no-price sentinel ("price on request")
-    if buy_now >= 9999999:
+    if buy_now in PRICE_SENTINELS:
         buy_now = 0  # sentinel for "no buy-now price set"
     if buy_now > 0:
         price = buy_now
     elif bid > 0:
         price = bid
-    elif price >= 9999999:
+    elif price in PRICE_SENTINELS:
         # Mercari-style "price on request" placeholder (¥9,999,999).
         price = 0
     shop = SHOP_TYPES.get(_int_or_zero(item.get("Type")), f"shop_{item.get('Type')}")
-    item_id = item.get("Asin") or decode_url(item.get("Url") or "")
-    discount_pct = round(100 * (1 - price / origin)) if origin > 0 else 0
+    original_url = decode_url(item.get("Url") or "")
+    item_id = item.get("Asin") or original_url
+    if not item_id:
+        item_id = f"{shop}:{item.get('Name') or ''}:{price}:{item.get('ImageUrl') or ''}"
+    if origin in PRICE_SENTINELS:
+        origin = 0
+    discount_pct = round(100 * (1 - price / origin)) if price > 0 and origin > 0 else 0
     out: dict = {
         "id": item_id,
         "name": item.get("Name") or "",
@@ -83,7 +89,7 @@ def normalize(item: dict) -> dict:
         "condition": CONDITION_EN.get(item.get("Condition") or "", item.get("Condition") or ""),
         "property": item.get("Property") or "",
         "image_url": item.get("ImageUrl") or "",
-        "original_url": decode_url(item.get("Url") or ""),
+        "original_url": original_url,
         "auction": None,
     }
     if shop == "yahoo_auction" and (bid or buy_now):

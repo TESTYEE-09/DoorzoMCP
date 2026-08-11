@@ -62,6 +62,15 @@ def doorzo_search(
         property, image_url, original_url, auction, deal, deal_reason.
     """
     try:
+        keyword = keyword.strip()
+        if not keyword:
+            raise ValueError("keyword is required")
+        if max_price_jpy is not None and max_price_jpy <= 0:
+            raise ValueError("max_price_jpy must be greater than 0")
+        if not 0 <= min_discount_pct <= 100:
+            raise ValueError("min_discount_pct must be between 0 and 100")
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
         if sort not in ("recommended", "price_asc", "price_desc"):
             raise ValueError(f"invalid sort '{sort}'; use recommended|price_asc|price_desc")
         _check_shops(shops)
@@ -112,6 +121,9 @@ def doorzo_exchange_rate(currency: str = "AUD") -> str:
         JSON: {"currency", "exchange", "symbol", "name", "Precision"}.
     """
     try:
+        currency = currency.strip().upper()
+        if len(currency) != 3 or not currency.isalpha():
+            raise ValueError("currency must be a 3-letter code")
         rate = DoorzoClient().exchange_rate(currency)
         return json.dumps(rate, ensure_ascii=False)
     except Exception as e:
@@ -142,6 +154,13 @@ def doorzo_monitor_add(
         JSON: the created monitor (id, name, keyword, ...).
     """
     try:
+        name, keyword = name.strip(), keyword.strip()
+        if not name or not keyword:
+            raise ValueError("name and keyword are required")
+        if max_price_jpy <= 0:
+            raise ValueError("max_price_jpy must be greater than 0")
+        if not 0 <= min_discount_pct <= 100:
+            raise ValueError("min_discount_pct must be between 0 and 100")
         _check_shops(shops)
         mon = store.add_monitor(
             name=name,
@@ -239,6 +258,8 @@ async def doorzo_check_monitors(
         (max 5 per monitor run) and appended to ~/.doorzo-mcp/alerts.jsonl.
     """
     try:
+        if not 0 <= watch_minutes <= 1440:
+            raise ValueError("watch_minutes must be between 0 and 1440")
         client = DoorzoClient()
         rate = client.exchange_rate("AUD")
         monitors = store.load_monitors()
@@ -257,11 +278,16 @@ async def doorzo_check_monitors(
 
         deadline = None if watch_minutes <= 0 else _time.monotonic() + watch_minutes * 60
         while True:
-            run = [_check_one(client, m, rate) for m in monitors]
+            run = await asyncio.to_thread(
+                lambda: [_check_one(client, monitor, rate) for monitor in monitors]
+            )
             results.extend(run)
-            if deadline is None or _time.monotonic() >= deadline:
+            if deadline is None:
                 break
-            await asyncio.sleep(60)
+            remaining = deadline - _time.monotonic()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(60, remaining))
         return json.dumps(
             {
                 "checked_at": datetime.now(timezone.utc).isoformat(),

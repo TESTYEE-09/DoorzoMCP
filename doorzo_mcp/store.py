@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-BASE_DIR = Path.home() / ".doorzo-mcp"
+BASE_DIR = Path(os.environ.get("DOORZO_STATE_DIR", Path.home() / ".doorzo-mcp"))
 MONITORS_PATH = BASE_DIR / "monitors.json"
 SEEN_PATH = BASE_DIR / "seen.json"
 ALERTS_PATH = BASE_DIR / "alerts.jsonl"
@@ -23,12 +23,19 @@ def _now() -> str:
 
 
 def _atomic_write(path: Path, data: str) -> None:
-    BASE_DIR.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=str(BASE_DIR), prefix=path.name + ".", suffix=".tmp")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:
             f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, path)
+        dir_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
     except BaseException:
         try:
             os.unlink(tmp)
@@ -65,15 +72,26 @@ def add_monitor(
     notify: bool = True,
 ) -> dict:
     monitors = load_monitors()
+    shops = sorted(set(shops)) if shops else None
+    signature = (name.casefold(), keyword.casefold(), int(max_price_jpy), shops,
+                 int(min_discount_pct), bool(notify))
     for m in monitors:
-        if (m["name"], m["keyword"], m["max_price_jpy"]) == (name, keyword, max_price_jpy):
+        current = (
+            str(m.get("name", "")).casefold(),
+            str(m.get("keyword", "")).casefold(),
+            int(m.get("max_price_jpy", 0)),
+            sorted(set(m.get("shops") or [])) or None,
+            int(m.get("min_discount_pct", 0)),
+            bool(m.get("notify", True)),
+        )
+        if current == signature:
             raise ValueError(f"monitor already exists: '{name}' / '{keyword}' / ¥{max_price_jpy}")
     mon = {
         "id": str(uuid4()),
         "name": name,
         "keyword": keyword,
         "max_price_jpy": int(max_price_jpy),
-        "shops": list(shops) if shops else None,
+        "shops": shops,
         "min_discount_pct": int(min_discount_pct),
         "notify": bool(notify),
         "created_at": _now(),
@@ -159,5 +177,8 @@ def append_alerts(monitor_id: str, monitor_name: str, items: list[dict]) -> None
                 ensure_ascii=False,
             )
         )
-    with open(ALERTS_PATH, "a") as f:
+    fd = os.open(ALERTS_PATH, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "w") as f:
         f.write("\n".join(lines) + "\n")
+        f.flush()
+        os.fsync(f.fileno())

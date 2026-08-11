@@ -10,32 +10,38 @@ DOORZO_WEB_HOST / DOORZO_WEB_PORT).
 from __future__ import annotations
 
 import json
+from collections import deque
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from doorzo_mcp import store
 from doorzo_mcp.client import DoorzoError
+from doorzo_mcp.deals import SHOP_TYPES
 from doorzo_mcp import server as mcp_tools
 
 app = FastAPI(title="Doorzo Deal Monitor", version="1.0.0")
 
 STATIC_DIR = Path(__file__).parent / "static"
-VALID_SHOPS = sorted(
-    {  # re-derive from the deals module without importing private bits
-        "mercari", "rakuma", "paypay_mall", "paypay_flea", "rakuten",
-        "yahoo_auction", "amazon", "lashinbang", "snkrdunk",
-    }
-)
+VALID_SHOPS = sorted(SHOP_TYPES.values())
 
 
 def _unpack(payload: str) -> dict:
     """Parse a tool's JSON-string result, mapping tool errors to HTTP."""
     data = json.loads(payload)
     if isinstance(data, dict) and "error" in data:
-        raise HTTPException(status_code=400, detail=data["error"])
+        message = str(data["error"])
+        if "monitor not found" in message:
+            status = 404
+        elif "already exists" in message:
+            status = 409
+        elif message.startswith(("Sig.", "doorzo ")) or "HTTP status" in message:
+            status = 502
+        else:
+            status = 400
+        raise HTTPException(status_code=status, detail=message)
     return data
 
 
@@ -48,13 +54,13 @@ def index() -> FileResponse:
 
 @app.get("/api/search")
 def api_search(
-    keyword: str,
-    max_price_jpy: int | None = None,
+    keyword: str = Query(min_length=1, max_length=200),
+    max_price_jpy: int | None = Query(default=None, gt=0),
     shops: str | None = None,  # comma-separated shop names
     sort: str = "recommended",
     only_in_stock: bool = True,
-    min_discount_pct: int = 0,
-    limit: int = 20,
+    min_discount_pct: int = Query(default=0, ge=0, le=100),
+    limit: int = Query(default=20, ge=1, le=200),
 ) -> dict:
     shop_list = None
     if shops:
@@ -74,7 +80,7 @@ def api_search(
                 sort=sort,
                 only_in_stock=only_in_stock,
                 min_discount_pct=min_discount_pct,
-                limit=min(max(limit, 1), 200),
+                limit=limit,
             )
         )
     except DoorzoError as e:
@@ -91,6 +97,9 @@ def api_hot() -> dict:
 
 @app.get("/api/rate")
 def api_rate(currency: str = "AUD") -> dict:
+    currency = currency.strip().upper()
+    if len(currency) != 3 or not currency.isalpha():
+        raise HTTPException(status_code=422, detail="currency must be a 3-letter code")
     try:
         return _unpack(mcp_tools.doorzo_exchange_rate(currency=currency))
     except DoorzoError as e:
@@ -100,8 +109,8 @@ def api_rate(currency: str = "AUD") -> dict:
 # --- monitors -------------------------------------------------------------
 
 class MonitorIn(BaseModel):
-    name: str
-    keyword: str
+    name: str = Field(min_length=1, max_length=100)
+    keyword: str = Field(min_length=1, max_length=200)
     max_price_jpy: int = Field(gt=0)
     shops: list[str] | None = None
     min_discount_pct: int = Field(default=0, ge=0, le=100)
@@ -115,6 +124,9 @@ def api_monitors() -> dict:
 
 @app.post("/api/monitors")
 def api_monitor_add(body: MonitorIn) -> dict:
+    body.name, body.keyword = body.name.strip(), body.keyword.strip()
+    if not body.name or not body.keyword:
+        raise HTTPException(status_code=422, detail="name and keyword cannot be blank")
     bad = [s for s in (body.shops or []) if s not in VALID_SHOPS]
     if bad:
         raise HTTPException(
@@ -166,13 +178,17 @@ def api_alerts(limit: int = 200) -> dict:
     alerts: list[dict] = []
     path = store.ALERTS_PATH
     if path.exists():
-        for line in path.read_text().splitlines():
+        try:
+            with path.open() as file:
+                lines = deque(file, maxlen=limit)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail="could not read alerts") from exc
+        for line in reversed(lines):
             try:
                 alerts.append(json.loads(line))
             except json.JSONDecodeError:
                 continue
-    alerts.reverse()
-    return {"alerts": alerts[:limit]}
+    return {"alerts": alerts}
 
 
 def main() -> None:
