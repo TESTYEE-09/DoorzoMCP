@@ -17,6 +17,8 @@ It searches **doorzo.com** — a proxy-shopping service that combines 9 Japanese
 - **Trending searches** — see what people are hunting for right now.
 - **Live AUD prices** — the web UI converts Doorzo's JPY prices and price ceilings using Doorzo's current AUD rate.
 - **Open via Doorzo** — product and alert links stay inside Doorzo instead of sending you to the underlying marketplace.
+- **Choose how to buy** — narrow results to Buy It Now listings or auctions.
+- **Avoid junk listings** — hide likely junk, broken, untested, or parts-only items by default; show or isolate them when wanted. Flagged results carry a clear `JUNK / PARTS` label and reason.
 
 ## Two ways to use it
 

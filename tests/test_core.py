@@ -69,6 +69,11 @@ class DealTest(unittest.TestCase):
             "https://www.doorzo.com/en/mall/snkrdunk/detail/apparels%2F91385",
         )
 
+    def test_junk_listing_is_labeled(self):
+        item = normalize({"Type": 1, "Name": "ゲーム機 ジャンク 部品取り"})
+        self.assertTrue(item["junk"])
+        self.assertEqual(item["junk_reason"], "Marked junk")
+
 
 class ClientTest(unittest.TestCase):
     @patch("doorzo_mcp.client.time.sleep")
@@ -95,6 +100,25 @@ class WebTest(unittest.TestCase):
         with patch("doorzo_mcp.web.mcp_tools.doorzo_monitor_remove",
                    return_value=json.dumps({"error": "monitor not found: x"})):
             self.assertEqual(client.delete("/api/monitors/x").status_code, 404)
+
+    def test_listing_and_junk_filters(self):
+        items = [
+            {"id": "fixed", "auction": None, "junk": False},
+            {"id": "junk", "auction": None, "junk": True},
+            {"id": "bid", "auction": {"bid_jpy": 100, "buy_now_jpy": 0}, "junk": False},
+            {"id": "both", "auction": {"bid_jpy": 100, "buy_now_jpy": 200}, "junk": False},
+        ]
+        payload = json.dumps({"query": "x", "currency": "JPY", "items": items})
+        client = TestClient(app)
+        with patch("doorzo_mcp.web.mcp_tools.doorzo_search", return_value=payload):
+            auctions = client.get("/api/search?keyword=x&listing_type=auction").json()
+            buy_now = client.get("/api/search?keyword=x&listing_type=buy_now").json()
+            junk = client.get("/api/search?keyword=x&junk_filter=only").json()
+            clean = client.get("/api/search?keyword=x&junk_filter=hide").json()
+        self.assertEqual([item["id"] for item in auctions["items"]], ["bid", "both"])
+        self.assertEqual([item["id"] for item in buy_now["items"]], ["fixed", "junk", "both"])
+        self.assertEqual([item["id"] for item in junk["items"]], ["junk"])
+        self.assertNotIn("junk", [item["id"] for item in clean["items"]])
 
 
 class MonitorCheckTest(unittest.TestCase):

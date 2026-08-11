@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from collections import deque
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -58,6 +59,8 @@ def api_search(
     max_price_jpy: int | None = Query(default=None, gt=0),
     shops: str | None = None,  # comma-separated shop names
     sort: str = "recommended",
+    listing_type: Literal["all", "buy_now", "auction"] = "all",
+    junk_filter: Literal["hide", "all", "only"] = "all",
     only_in_stock: bool = True,
     min_discount_pct: int = Query(default=0, ge=0, le=100),
     limit: int = Query(default=20, ge=1, le=200),
@@ -72,7 +75,7 @@ def api_search(
                 detail=f"invalid shop(s) {bad}; valid: {', '.join(sorted(VALID_SHOPS))}",
             )
     try:
-        return _unpack(
+        data = _unpack(
             mcp_tools.doorzo_search(
                 keyword=keyword,
                 max_price_jpy=max_price_jpy,
@@ -80,9 +83,22 @@ def api_search(
                 sort=sort,
                 only_in_stock=only_in_stock,
                 min_discount_pct=min_discount_pct,
-                limit=limit,
+                limit=200 if listing_type != "all" or junk_filter != "all" else limit,
             )
         )
+        if listing_type == "auction":
+            data["items"] = [item for item in data["items"] if item.get("auction")]
+        elif listing_type == "buy_now":
+            data["items"] = [
+                item for item in data["items"]
+                if not item.get("auction") or item["auction"].get("buy_now_jpy", 0) > 0
+            ]
+        if junk_filter == "hide":
+            data["items"] = [item for item in data["items"] if not item.get("junk")]
+        elif junk_filter == "only":
+            data["items"] = [item for item in data["items"] if item.get("junk")]
+        data["items"] = data["items"][:limit]
+        return data
     except DoorzoError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 

@@ -33,6 +33,28 @@ CONDITION_EN: dict[str, str] = {
     "整体状态不佳": "Poor overall condition",
 }
 
+JUNK_TERMS = {
+    "ジャンク": "Marked junk",
+    "故障": "Broken or faulty",
+    "動作未確認": "Operation untested",
+    "動作確認していません": "Operation untested",
+    "部品取り": "For parts",
+    "パーツ取り": "For parts",
+    "不動": "Not working",
+    "poor overall condition": "Poor overall condition",
+    "整体状态不佳": "Poor overall condition",
+}
+
+
+def junk_reason(item: dict) -> str:
+    """Return a plain-language reason when a listing is likely junk/parts."""
+    text = " ".join(str(item.get(key) or "") for key in ("Name", "Condition", "Property"))
+    folded = text.casefold()
+    for term, reason in JUNK_TERMS.items():
+        if term.casefold() in folded:
+            return reason
+    return ""
+
 
 def decode_url(raw: str) -> str:
     """Item URLs arrive hex-encoded; some shops send raw ids instead."""
@@ -101,6 +123,7 @@ def normalize(item: dict) -> dict:
     if origin in PRICE_SENTINELS:
         origin = 0
     discount_pct = round(100 * (1 - price / origin)) if price > 0 and origin > 0 else 0
+    junk = junk_reason(item)
     out: dict = {
         "id": item_id,
         "name": item.get("Name") or "",
@@ -113,6 +136,8 @@ def normalize(item: dict) -> dict:
         "image_url": item.get("ImageUrl") or "",
         "original_url": original_url,
         "doorzo_url": doorzo_url(shop, item.get("Url") or item_id),
+        "junk": bool(junk),
+        "junk_reason": junk,
         "auction": None,
     }
     if shop == "yahoo_auction" and (bid or buy_now):
