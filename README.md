@@ -11,11 +11,12 @@ It searches **doorzo.com** — a proxy-shopping service that combines 9 Japanese
 ## What it does
 
 - **Search** for a keyword (e.g. `マリオパーティ` or `nintendo switch`) across all 9 marketplaces at once.
-- **Filter by price** — only show items at or below your ceiling (in JPY).
+- **Filter by price** — set a ceiling in Australian dollars in the web UI.
 - **Spot discounts** — shows the list price vs. the sale price and the % off.
-- **Monitor keywords** — tell it "alert me when a Mario Party game appears for under ¥3,000". It checks in the background and notifies you (macOS notification + a log file).
+- **Monitor keywords** — tell it "alert me when a Mario Party game appears for under A$30". It checks in the background and notifies you (macOS notification + a log file).
 - **Trending searches** — see what people are hunting for right now.
-- **Live exchange rate** — prices in ¥, converted to your currency.
+- **Live AUD prices** — the web UI converts Doorzo's JPY prices and price ceilings using Doorzo's current AUD rate.
+- **Open via Doorzo** — product and alert links stay inside Doorzo instead of sending you to the underlying marketplace.
 
 ## Two ways to use it
 
@@ -49,6 +50,11 @@ uv run doorzo-web
 
 Search something, or add a monitor: give it a name, a keyword, and a max price. Click **Check all monitors** to check for new matches right now. New matches fire a macOS notification and appear in the Alerts list.
 
+The web UI displays and accepts prices in **AUD**. Internally, monitor ceilings
+are converted to JPY so the web UI and MCP server can continue sharing the same
+backward-compatible state. Product links open through Doorzo, where you can
+review or purchase the listing using Doorzo's proxy-shopping flow.
+
 Your monitors and alerts are stored in `~/.doorzo-mcp/` and survive restarts.
 Set `DOORZO_STATE_DIR` before starting either service only if you want to keep
 that state somewhere else.
@@ -64,6 +70,10 @@ claude mcp add doorzo-deals -- uv run --directory /path/to/DoorzoMCP doorzo-mcp
 ```
 
 The AI then has these tools: `doorzo_search`, `doorzo_hot_searches`, `doorzo_exchange_rate`, `doorzo_monitor_add`, `doorzo_monitor_remove`, `doorzo_monitor_list`, and `doorzo_check_monitors`. Example: *"add a monitor for a Mario Party game under ¥3,000 and check it now"* — it will do that and tell you what it found.
+
+The MCP tool parameters and returned price fields remain in **JPY**. This keeps
+the public tool contract stable for existing agents; AUD conversion is a web UI
+feature.
 
 ---
 
@@ -85,6 +95,7 @@ doorzo_mcp/
 ## Things to know
 
 - **Prices are before proxy fees.** You still pay doorzo's service fee and international shipping. The tool finds cheap *listings*.
+- **AUD amounts are estimates.** Doorzo's live rate is used, and the final amount may differ when Doorzo processes the purchase.
 - **Condition text** comes from the sites in Chinese; this tool translates it to English (unknown labels pass through as-is).
 - **The API could change.** doorzo.com is an unaffiliated third party; this project uses its internal API with no authentication, so it may break if they change things or add bot protection.
 - **MIT licensed.** Use at your own risk. Not affiliated with or endorsed by doorzo.com.
