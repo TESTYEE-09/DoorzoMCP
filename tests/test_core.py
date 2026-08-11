@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from doorzo_mcp import store
 from doorzo_mcp.client import DoorzoClient, DoorzoError
-from doorzo_mcp.deals import is_deal, normalize
+from doorzo_mcp.deals import doorzo_url, is_deal, normalize
 from doorzo_mcp.server import (
     _check_one, doorzo_exchange_rate, doorzo_hot_searches, doorzo_monitor_add,
 )
@@ -57,6 +57,12 @@ class DealTest(unittest.TestCase):
         item = normalize({"Type": 1, "JPYPrice": 1000})
         self.assertFalse(is_deal(item, 2000, 10)[0])
 
+    def test_product_link_routes_through_doorzo(self):
+        url = "https://jp.mercari.com/item/abc"
+        routed = doorzo_url(url)
+        self.assertTrue(routed.startswith("https://www.doorzo.com/en/?url="))
+        self.assertEqual(bytes.fromhex(routed.rsplit("=", 1)[1]).decode(), url)
+
 
 class ClientTest(unittest.TestCase):
     @patch("doorzo_mcp.client.time.sleep")
@@ -103,6 +109,7 @@ class MonitorCheckTest(unittest.TestCase):
         self.assertEqual(len(result["new"]), 8)
         self.assertEqual(len(set_seen.call_args.args[1]), 8)
         self.assertEqual(notify.call_count, 5)
+        self.assertIn("https://www.doorzo.com/", notify.call_args.args[1])
 
     def test_tool_entry_points_validate_without_name_errors(self):
         with patch("doorzo_mcp.server.DoorzoClient") as client:

@@ -216,10 +216,10 @@ def _check_one(client: DoorzoClient, mon: dict, rate: dict) -> dict:
         aud = rate.get("exchange") or 0
         for d in new[:MAX_NOTIFICATIONS_PER_RUN]:
             if mon.get("notify", True):
-                approx = f" ≈ A${d['price_jpy'] * aud:.2f}" if aud else ""
+                price = f"A${d['price_jpy'] * aud:.2f}" if aud else f"¥{d['price_jpy']:,}"
                 notify(
                     f"{d['name'][:60]}",
-                    f"¥{d['price_jpy']:,}{approx} · {d['shop']}\n{d['original_url']}",
+                    f"{price} · {d['shop']}\n{d['doorzo_url']}",
                 )
         store.update_monitor(
             mon["id"],

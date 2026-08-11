@@ -172,7 +172,7 @@ def append_alerts(monitor_id: str, monitor_name: str, items: list[dict]) -> None
                     "name": it["name"],
                     "price_jpy": it["price_jpy"],
                     "shop": it["shop"],
-                    "url": it["original_url"],
+                    "url": it.get("doorzo_url") or it["original_url"],
                 },
                 ensure_ascii=False,
             )

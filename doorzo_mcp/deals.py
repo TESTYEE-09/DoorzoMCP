@@ -47,6 +47,13 @@ def decode_url(raw: str) -> str:
     return raw
 
 
+def doorzo_url(original_url: str) -> str:
+    """Route a marketplace listing through Doorzo's product importer."""
+    if not original_url:
+        return "https://www.doorzo.com/en"
+    return f"https://www.doorzo.com/en/?url={original_url.encode().hex()}"
+
+
 def _int_or_zero(v: Any) -> int:
     try:
         return int(v)
@@ -90,6 +97,7 @@ def normalize(item: dict) -> dict:
         "property": item.get("Property") or "",
         "image_url": item.get("ImageUrl") or "",
         "original_url": original_url,
+        "doorzo_url": doorzo_url(original_url),
         "auction": None,
     }
     if shop == "yahoo_auction" and (bid or buy_now):
