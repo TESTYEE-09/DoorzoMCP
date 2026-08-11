@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import quote
 
 # Verified live from MixSearch responses (Type -> shop name).
 SHOP_TYPES: dict[int, str] = {
@@ -47,11 +48,25 @@ def decode_url(raw: str) -> str:
     return raw
 
 
-def doorzo_url(original_url: str) -> str:
-    """Route a marketplace listing through Doorzo's product importer."""
-    if not original_url:
+DOORZO_ROUTES = {
+    "mercari": "mercari",
+    "rakuma": "rakuma",
+    "paypay_mall": "paypay",
+    "paypay_flea": "market",
+    "rakuten": "rakuten",
+    "yahoo_auction": "yahoo",
+    "amazon": "amazon",
+    "lashinbang": "lashinbang",
+    "snkrdunk": "snkrdunk",
+}
+
+
+def doorzo_url(shop: str, item_id: Any) -> str:
+    """Build Doorzo's native product-detail route for a normalized listing."""
+    route = DOORZO_ROUTES.get(shop)
+    if not route or not item_id:
         return "https://www.doorzo.com/en"
-    return f"https://www.doorzo.com/en/?url={original_url.encode().hex()}"
+    return f"https://www.doorzo.com/en/mall/{route}/detail/{quote(str(item_id), safe='')}"
 
 
 def _int_or_zero(v: Any) -> int:
@@ -97,7 +112,7 @@ def normalize(item: dict) -> dict:
         "property": item.get("Property") or "",
         "image_url": item.get("ImageUrl") or "",
         "original_url": original_url,
-        "doorzo_url": doorzo_url(original_url),
+        "doorzo_url": doorzo_url(shop, item.get("Url") or item_id),
         "auction": None,
     }
     if shop == "yahoo_auction" and (bid or buy_now):

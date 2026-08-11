@@ -58,10 +58,16 @@ class DealTest(unittest.TestCase):
         self.assertFalse(is_deal(item, 2000, 10)[0])
 
     def test_product_link_routes_through_doorzo(self):
-        url = "https://jp.mercari.com/item/abc"
-        routed = doorzo_url(url)
-        self.assertTrue(routed.startswith("https://www.doorzo.com/en/?url="))
-        self.assertEqual(bytes.fromhex(routed.rsplit("=", 1)[1]).decode(), url)
+        raw_url = "68747470733a2f2f6578616d706c652e636f6d"
+        item = normalize({"Type": 1, "Asin": "m123", "Url": raw_url})
+        self.assertEqual(
+            item["doorzo_url"],
+            f"https://www.doorzo.com/en/mall/mercari/detail/{raw_url}",
+        )
+        self.assertEqual(
+            doorzo_url("snkrdunk", "apparels/91385"),
+            "https://www.doorzo.com/en/mall/snkrdunk/detail/apparels%2F91385",
+        )
 
 
 class ClientTest(unittest.TestCase):
